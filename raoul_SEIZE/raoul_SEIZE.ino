@@ -78,6 +78,10 @@ void getRandomText(char* text)
   if(rand == (long)3)   strcpy(text,"Je suis venu, j'ai bu, le reste j'm'en rappelle pu...");
   if(rand == (long)4)   strcpy(text,"Qui veut la chouille prépare l'apéro");
   if(rand == (long)5)   strcpy(text,"Aut Cæsar, aut Nahil");
+  if(rand == (long)6)   strcpy(text,"Une blague ou ton Bacchus");
+  if(rand == (long)6)   strcpy(text,"Bienvenue au Forvm!");
+  if(rand == (long)6)   strcpy(text,"Assiez-toi donc sur une Seize");
+
 }
     
 /* ----------------- Fonctions Display Text -------------------------*/
