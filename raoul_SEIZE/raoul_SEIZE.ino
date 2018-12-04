@@ -60,7 +60,7 @@ const unsigned long DELAY_BETWEEN_CAPSULES = 500; //Allez tous niquer vos mères
 
 void getCapsuleText(char* text)
 {
-  long rand = random(16);
+  long rand = random(4);
   free(text);
   if(rand == (long)0) strcpy(text, "Voilà un tir digne d'un légionnaire !");
   if(rand == (long)1) strcpy(text, "Capsulea jacta est !");
@@ -70,7 +70,7 @@ void getCapsuleText(char* text)
 }
 void getRandomText(char* text)
 {
-  long rand = random(7);
+  long rand = random(5);
   free(text);
   if(rand == (long)0)   strcpy(text,"Du vin, par Junon !");
   if(rand == (long)1)   strcpy(text,"La promo 8*2 elle t'encule*2 !");
@@ -185,6 +185,12 @@ void setState(stateRaoul newState)
     case AFFICHECOMPTEUR:
       break;
     case AFFICHECAPS: 
+      //getCapsuleText(text);
+    Serial.println("test");
+    strcpy(text, "Test");
+      setScrolling();
+      drawAdaptiveText();
+    Serial.println("test");
       break;
     case AFFICHEPHRASE:
       break;
@@ -216,8 +222,6 @@ void setup () {
   // Lecteur audio
   player.begin(); //will initialize the hardware and set default mode to be normal.
   player.keyDisable();
-  player.addToPlaylist("A.mp3");
-  player.addToPlaylist("B.mp3");
 
   delay(1000);
   // Ecran LED
@@ -229,14 +233,15 @@ void setup () {
   pinMode(PDCapsule, INPUT_PULLUP);
 
   // Attach interrupt pour la détection de la capsule
-  attachInterrupt(digitalPinToInterrupt(PDCapsule), compteurInterrupt, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(PDCapsule), compteurInterrupt, RISING);
 
 
-
+current_anim = 1 ;
 
   animations[current_anim].startAnim();
 
   //Serial.println("Starting") ;
+  //setState(AFFICHEANIM);
   
 }
 
@@ -244,10 +249,11 @@ void setup () {
 void loop () {
 
   //Update des trucs qui ont besoin de l'être
-  player.play();
-  animations[current_anim].updateAnim();
-
+      player.play();
   checkCapsule();
+
+      //getCapsuleText(text);
+      setScrolling();
 
   // Logique affichage/animation
   switch (myStateRaoul)
@@ -255,10 +261,12 @@ void loop () {
     case AFFICHECOMPTEUR :
       break ;
     case AFFICHECAPS :
+      drawAdaptiveText();
       break ;
     case AFFICHEPHRASE :
       break ;
     case AFFICHEANIM:
+      animations[current_anim].updateAnim();
       break ;
     default :
       break;
