@@ -32,7 +32,6 @@ int cpt = 0 ; // Compteur de capsules
 
 byte current_anim = 0 ; // L'animation en train d'être jouée
 
-char *text; // Le texte à afficher sur l'écran
 
 bool bCapsule = false;
 int i = 0 ;
@@ -42,7 +41,11 @@ const int PDCapsule = 2 ; //pin du bidule à capsule
 // Pour l'affichage de texte qui défile
 uint8_t wd;
 uint8_t it;
+char text[128] = "Roger vous couche tous !"; // Le texte à afficher sur l'écran
 bool scrolling = false;
+unsigned long lastScroll= 0 ;
+#define TEXT_SCROLL_UPDATE_TIME 75 
+
 
 //auto  timer = timer_create_default();
 
@@ -62,11 +65,11 @@ void getCapsuleText(char* text)
 {
   long rand = random(4);
   free(text);
-  if(rand == (long)0) strcpy(text, "Voilà un tir digne d'un légionnaire !");
+  if(rand == (long)0) strcpy(text, "Voila un tir digne d'un légionnaire !");
   if(rand == (long)1) strcpy(text, "Capsulea jacta est !");
   if(rand == (long)2) strcpy(text, "Ah, quelle belle orgie !");
-  if(rand == (long)3) strcpy(text, "Ca sent bon la décadence, tout ça !");
-  if(rand == (long)4) strcpy(text, "Bacchus saura te récompenser!");
+  if(rand == (long)3) strcpy(text, "Ca sent bon la decadence, tout ça !");
+  if(rand == (long)4) strcpy(text, "Bacchus saura te recompenser!");
 }
 void getRandomText(char* text)
 {
@@ -74,10 +77,10 @@ void getRandomText(char* text)
   free(text);
   if(rand == (long)0)   strcpy(text,"Du vin, par Junon !");
   if(rand == (long)1)   strcpy(text,"La promo 8*2 elle t'encule*2 !");
-  if(rand == (long)2)   strcpy(text,"César a la Gaule, et la 16 aussi !");
+  if(rand == (long)2)   strcpy(text,"Cesar a la Gaule, et la 16 aussi !");
   if(rand == (long)3)   strcpy(text,"Je suis venu, j'ai bu, le reste j'm'en rappelle pu...");
-  if(rand == (long)4)   strcpy(text,"Qui veut la chouille prépare l'apéro");
-  if(rand == (long)5)   strcpy(text,"Aut Cæsar, aut Nahil");
+  if(rand == (long)4)   strcpy(text,"Qui veut la chouille prépare l'apero");
+  if(rand == (long)5)   strcpy(text,"Aut Cesar, aut Nahil");
 }
     
 /* ----------------- Fonctions Display Text -------------------------*/
@@ -95,11 +98,11 @@ void drawCenteredText()
   HT1632.drawText(text, (OUT_SIZE - wd) / 2, 0, FONT_8X4, FONT_8X4_END, FONT_8X4_HEIGHT);
   HT1632.render();
 }
+
 /*
    Afficher un texte
    S'il dépasse de l'écran (en largeur), on le fait défiler
 */
-
 void drawAdaptiveText()
 {
   if (scrolling)
@@ -107,12 +110,40 @@ void drawAdaptiveText()
   else
     drawCenteredText();
 }
+
+
+/*
+ *setScrolling
+ *remet à 0 la valeur du curseur et vérifie si y'a besoin de scroll pour le texte 
+ */
 void setScrolling()
 {
   it = 0;
   wd = HT1632.getTextWidth(text, FONT_8X4_END, FONT_8X4_HEIGHT);
   scrolling = (wd > OUT_SIZE);
 }
+
+
+/*
+ *updateScroll
+ *indente la position du curseur et affiche le texte avec la cadence désirée
+ *retourne true s'il reste encore du texte à afficher, false sinon
+ */
+bool updateScroll()
+{
+  if (it <= wd + OUT_SIZE)
+  {
+    if(millis() - lastScroll > TEXT_SCROLL_UPDATE_TIME )
+    {
+      lastScroll = millis();
+      it++;
+      drawAdaptiveText();
+    }
+    return true ;
+  }
+  else return false ;
+}
+
 
 
 /* ----------------- Fonctions Accès mémoire  -------------------------*/
@@ -191,6 +222,8 @@ void setState(stateRaoul newState)
     case AFFICHEPHRASE:
       break;
     case AFFICHEANIM: 
+    //random current_anim
+      animations[current_anim]->startAnim();
       break;
     default :
       break;
@@ -223,8 +256,6 @@ void setup () {
   // Ecran LED
   HT1632.begin(pinCS1, pinWR, pinDATA);
   
-  //HT1632.drawText("INIT", OUT_SIZE - i, 0, FONT_5X4, FONT_5X4_END, FONT_5X4_HEIGHT);
-
 
   pinMode(PDCapsule, INPUT_PULLUP);
 
@@ -232,24 +263,30 @@ void setup () {
   //attachInterrupt(digitalPinToInterrupt(PDCapsule), compteurInterrupt, RISING);
 
 
-current_anim = 1 ;
+  wd = HT1632.getTextWidth(text, FONT_8X4_END, FONT_8X4_HEIGHT);
 
-  animations[current_anim].startAnim();
+  //animations[current_anim].startAnim();
 
   //Serial.println("Starting") ;
   //setState(AFFICHEANIM);
   
+  setScrolling();
+  //drawCenteredText();
 }
 
 /* ----------------- Fonction Loop -------------------------*/
 void loop () {
+  
 
+  if(!updateScroll())
+  {
+    getRandomText(text);
+    setScrolling();
+  }
   //Update des trucs qui ont besoin de l'être
-      player.play();
-  checkCapsule();
+  player.play();
+  //checkCapsule();
 
-      //getCapsuleText(text);
-      setScrolling();
 
   // Logique affichage/animation
   switch (myStateRaoul)
@@ -257,12 +294,12 @@ void loop () {
     case AFFICHECOMPTEUR :
       break ;
     case AFFICHECAPS :
-      drawAdaptiveText();
+      //drawAdaptiveText();
       break ;
     case AFFICHEPHRASE :
       break ;
     case AFFICHEANIM:
-      animations[current_anim].updateAnim();
+      //animations[current_anim].updateAnim();
       break ;
     default :
       break;
