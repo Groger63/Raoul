@@ -3,7 +3,6 @@
 #define Image_h
 
 
-#include "Arduino.h"
 #include <HT1632.h>
 
 class Image{

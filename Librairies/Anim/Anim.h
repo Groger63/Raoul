@@ -9,17 +9,17 @@
 class Anim{
 	private :
 		Image * images ;
-		int currentImg;
-		int nbrImages ;
+		byte currentImg;
+		byte nbrImages ;
 		unsigned long startTime ;
 	public :
 
 
-		Anim(Image imgs[], int nbimg );
+		Anim(Image * imgs, int nbimg );
 		Anim();
 		~Anim();
 		void startAnim();
-		void updateAnim();
+		bool updateAnim();
 
 
 };
