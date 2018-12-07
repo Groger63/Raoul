@@ -22,34 +22,34 @@
 
 //Etat actuel du Raoul
 typedef enum {AFFICHECOMPTEUR, AFFICHECAPS, AFFICHEPHRASE, AFFICHEANIM, BLINKCOUNTER} stateRaoul;
-stateRaoul myStateRaoul = AFFICHEANIM ;
+stateRaoul myStateRaoul = AFFICHEPHRASE ;
 
 
 
-uint8_t cpt = 0 ; // Compteur de capsules
+unsigned int cpt = 0 ; // Compteur de capsules
 #define CPT_ADDR 0 // Adresse de la variable cpt dans l'eeprom
 
-Anim current_anim = eyesAnim ; // L'animation en train d'être jouée
+uint8_t current_anim = 0 ; // L'animation en train d'être jouée
 
 
-bool bCapsule = false;
+//bool bCapsule = false;
 
-const int PDCapsule = 2 ; //pin du bidule à capsule
+//const int PDCapsule = 2 ; //pin du bidule à capsule
 
 // Pour l'affichage de texte qui défile
 uint8_t wd;
 uint8_t it;
-char text[64] = "Roger vous couche" ; // Le texte à afficher sur l'écran
-char soundPath[16]= "rom.mp3" ;
+char text[50] = "Roger vous couche tous" ; // Le texte à afficher sur l'écran
+char soundPath[15]= "rom.mp3" ;
 bool scrolling = false;
 unsigned long lastScroll= 0 ;
 unsigned long startCapsDisplay= 0 ;
 #define TEXT_SCROLL_UPDATE_TIME 75 
-#define CAPS_DISPLAY_TIME 10*1000 //10sec 
+#define CAPS_DISPLAY_TIME 16*1000 //16sec 
 
 //pour le blink counter
 bool blinked = true ;
-byte blinkNumber = 0 ;
+uint8_t blinkNumber = 0 ;
 unsigned long lastBlink= 0 ;
 #define BLINK_TIME 500 // 
 #define BLINK_OCCURENCES 10 // 
@@ -57,7 +57,9 @@ unsigned long lastBlink= 0 ;
 
 //Différentes valeurs de temps pour s'y retrouver dans tout ce merdier
 unsigned long lastCapsSeen = 0 ;
+unsigned long lastPlayedRandomSong = 0 ;
 
+#define RANDOM_SONG_DELAY 16*60*1000 // toute les seize minutes
 #define DELAY_BETWEEN_CAPSULES 500 //Allez tous niquer vos mères
 
 /* ----------------- Fonctions Get Text -------------------------*/
@@ -65,11 +67,9 @@ unsigned long lastCapsSeen = 0 ;
 
 
 
-
-
 void getCapsuleText(char* text)
 {
-  byte rand = random(CAPS_TEXT_NUMBER);
+  uint8_t rand = random(CAPS_TEXT_NUMBER);
 
 
   strcpy_P(text, (PGM_P)pgm_read_word(&( capsuleText[rand])));
@@ -77,18 +77,17 @@ void getCapsuleText(char* text)
 
 void playVictorySound()
 {
-  byte rand = random(VICTORY_SOUND_NUMBER);
+  uint8_t rand = random(VICTORY_SOUND_NUMBER);
   player.deleteSong(soundPath);
 
   strcpy_P(soundPath, (PGM_P)pgm_read_word(&( victorySounds[rand])));
-  Serial.println(soundPath);
   player.playOne(soundPath);
 }
 
 void playRandomSound()
 {
-  byte rand = random(RANDOM_SOUND_NUMBER);
-  //player.deleteSong(soundPath);
+  uint8_t rand = random(RANDOM_SOUND_NUMBER);
+  player.deleteSong(soundPath);
 
   strcpy_P(soundPath, (PGM_P)pgm_read_word(&( randomSounds[rand])));
   player.playOne(soundPath);
@@ -97,12 +96,13 @@ void playRandomSound()
 
 void getRandomText(char* text)
 {
-  byte rand = random(RANDOM_TEXT_NUMBER);
+  uint8_t rand = random(RANDOM_TEXT_NUMBER);
   //free(text);
   strcpy_P(text, (PGM_P)pgm_read_word(&( randomText[rand])) );
 }
 
 void dec2romanstr( char * res,int num){
+    if(num == 0 ) strcat(res, "nulla");
     int del[] = {1000,900,500,400,100,90,50,40,10,9,5,4,1}; // Key value in Roman counting
     char * sym[] = { "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I" }; //Symbols for key values
     //char res[64] = "\0";         //result string
@@ -122,7 +122,6 @@ bool updateBlinkText() // pour des centered text svp
 {
   if(blinkNumber >= BLINK_OCCURENCES ) 
   {
-    blinkNumber = 0;
     return false ;
   }
 
@@ -190,6 +189,11 @@ void setScrolling()
  */
 bool updateScroll()
 {
+  if(!scrolling) 
+  {
+    drawCenteredText();
+    return true ;
+  }
   if (it <= wd + OUT_SIZE)
   {
     unsigned long elapsed = millis() - lastScroll  ;
@@ -198,7 +202,7 @@ bool updateScroll()
     {
       lastScroll = millis();
       it++;
-      drawAdaptiveText();
+      drawScrollingText();
     }
     return true ;
   }
@@ -231,19 +235,13 @@ unsigned int EEPROMReadInt(int p_address)
 void compteurInc()
 {
   cpt++;
-  //EEPROMWriteInt(CPT_ADDR, cpt); 
-}
-
-void compteurInterrupt()
-{
-  bCapsule = true;
-  //Serial.println("Caps !");
+  //EEPROMWriteInt(CPT_ADDR, cpt);  //à décommenter le jour J
 }
 
 void checkCapsule() 
 {  //Test du compte de capsule
   
-  bCapsule = (analogRead(A4) < 50 || analogRead(A5) < 50);
+  bool bCapsule = (analogRead(A4) < 50 || analogRead(A5) < 50);
   
   if(bCapsule )
   {
@@ -265,7 +263,7 @@ void checkCapsule()
  *  
  */
 
-int lastMem =0 ;
+//int lastMem =0 ;
 
 /* ----------------- Fonctions ChangeState -------------------------*/
 
@@ -273,20 +271,19 @@ int lastMem =0 ;
 void setState(stateRaoul newState)
 {
   myStateRaoul = newState;  
-  Serial.print("change state ");
   switch(myStateRaoul)
   {
     case BLINKCOUNTER :
-    //jouer du son
-      playVictorySound() ;
       Serial.println("BLINKCOUNTER");
+      blinkNumber = 0 ;
+      playVictorySound() ;
       lastBlink = millis();
       sprintf(text,"%d",cpt);
       setScrolling();
       drawAdaptiveText();
       break ;
     case AFFICHECOMPTEUR:
-      Serial.println("AFFICHECOMPTEUR");
+      //Serial.println("AFFICHECOMPTEUR");
       startCapsDisplay = millis();
 
       if(random(2)== 1)
@@ -313,9 +310,13 @@ void setState(stateRaoul newState)
     case AFFICHEANIM: 
       Serial.println("AFFICHEANIM");
     //random 
+      current_anim = random(ANIMATIONS_SIZE);
+      animTab[current_anim].startAnim() ;
+
+      
       //free(text);
-      //current_anim = eyesAnim;
-      current_anim.startAnim();
+      //current_anim = getRandomAnim();
+      //current_anim.startAnim();
       break;
     default :
       break;
@@ -324,7 +325,17 @@ void setState(stateRaoul newState)
 }
 
 
-
+void updateRandomShit()
+{
+  if(millis()-lastPlayedRandomSong >=RANDOM_SONG_DELAY)
+  {
+    if(myStateRaoul != BLINKCOUNTER && myStateRaoul != AFFICHECAPS)
+    {
+      playRandomSound();
+    }
+    lastPlayedRandomSong = millis() ;
+  }
+}
 
 /* ----------------- Fonction Setup -------------------------*/
 void setup () { 
@@ -338,7 +349,7 @@ void setup () {
 
   // Ecran LED
   HT1632.begin(pinCS1, pinWR, pinDATA); //hasardeux, ça marche pas si je le mets avant, ni après, par contre avant ET après oui...
-  cpt = 16 ;
+
   delay(1000);
   
   // Lecteur audio
@@ -350,7 +361,7 @@ void setup () {
   HT1632.begin(pinCS1, pinWR, pinDATA);
   
 
-  pinMode(PDCapsule, INPUT_PULLUP);
+  //pinMode(PDCapsule, INPUT_PULLUP);
   pinMode(A4, INPUT);
   pinMode(A5, INPUT);
 
@@ -360,25 +371,26 @@ void setup () {
 
 
   wd = HT1632.getTextWidth(text, FONT_8X4_END, FONT_8X4_HEIGHT);
-
-  setState(AFFICHEANIM);
-  
+  setScrolling();
+  //setState(AFFICHEANIM);
 }
 
 /* ----------------- Fonction Loop -------------------------*/
 void loop () {
   
   //debug
+  /*
   if(lastMem != freeMemory() )
   {
     lastMem = freeMemory() ;
     Serial.println(lastMem);
   }
-
+*/
   
   //Update des trucs qui ont besoin de l'être
-  player.play();
   checkCapsule();
+  player.play();
+  updateRandomShit();
 
 
 
@@ -394,7 +406,10 @@ void loop () {
     case AFFICHECOMPTEUR :
       if(millis() - startCapsDisplay <= CAPS_DISPLAY_TIME )
       {
-         updateScroll();
+         if(!updateScroll())
+         {
+            setState(AFFICHEPHRASE);
+         }
       }
       else setState(AFFICHEPHRASE);
       break ;
@@ -414,7 +429,7 @@ void loop () {
       
     case AFFICHEANIM:
 
-        if(!current_anim.updateAnim())
+        if(!animTab[current_anim].updateAnim())
         {
           setState(AFFICHECOMPTEUR);
         }
@@ -423,5 +438,5 @@ void loop () {
     default :
       break;
   }
-  
+  delay(1);
 }
