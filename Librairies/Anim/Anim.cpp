@@ -39,7 +39,7 @@ bool Anim::updateAnim()
 			{
 				repetitions ++ ;
 				currentImg = 0 ;
-				if(repetitions > repeat)
+				if(repetitions >= repeat)
 				{
 					return false ;
 				}
